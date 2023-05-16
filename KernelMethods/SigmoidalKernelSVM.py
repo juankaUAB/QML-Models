@@ -8,34 +8,37 @@ from sklearn.model_selection import train_test_split
 dev = qml.device("default.qubit", wires=4)
 
 @qml.qnode(dev)
-def quantum_circuit(x):
-    # Primero haremos el caso en el que no incluiremos una variable theta personalizada para las rotaciones. Más adelante lo probaremos.
+def quantum_sigmoidal_kernel(x1, x2, theta):
+    # Aqui meteremos la variable extra theta para ver si mejora el accuracy del modelo.
     
-    for i in range(len(x)):
-        qml.Hadamard(wires=i)
-        qml.RY(x[i], wires=i)
-    qml.CNOT(wires=[0, 1])
-    qml.CNOT(wires=[1, 2])
-    qml.CNOT(wires=[2, 3])
-    return [qml.expval(qml.PauliZ(i)) for i in range(len(x))]
+    # Encode the input vectors x1 and x2
+    qml.templates.AngleEmbedding(x1, wires=range(len(x1)))
+    qml.templates.AngleEmbedding(x2, wires=range(len(x2)))
+    
+    for i in range(len(x1)):
+        qml.RY(theta[i], wires=i)
 
-def linear_kernel(x1, x2):
-    return np.dot(x1, x2)
+    return qml.expval(qml.Hadamard(0))
 
-class QuantumLinearKernel:
-    def __init__(self):
+def sigmoidal_kernel(x1, x2, theta):
+    # Rescale the angles
+    scaled_theta = np.pi * theta
+    
+    return 1 / (1 + np.exp(-quantum_sigmoidal_kernel(x1, x2, scaled_theta)))
+
+class QuantumSigmoidalKernel:
+    def __init__(self, theta):
         self.dev = qml.device("default.qubit", wires=4)
-    
-    def quantum_circuit(self, x):
-        return quantum_circuit(x)
+        self.theta = theta
+        
+    def quantum_sigmoidal_kernel(self, x, y):
+        return quantum_sigmoidal_kernel(x, y)
 
     def __call__(self, X, Y):
         kernel_matrix = np.zeros((len(X), len(Y)))
         for i, x in enumerate(X):
             for j, y in enumerate(Y):
-                feature_map_x = self.quantum_circuit(x)
-                feature_map_y = self.quantum_circuit(y)
-                kernel_matrix[i, j] = linear_kernel(feature_map_x, feature_map_y)
+                kernel_matrix[i, j] = sigmoidal_kernel(x, y, self.theta)
         return kernel_matrix
 
 
@@ -56,9 +59,11 @@ y_scaled = 2 * (y - 0.5)
 
 X_train, X_test, y_train, y_test = train_test_split(X_scaled, y_scaled)
 
-quantum_linear_kernel = QuantumLinearKernel()
+theta = np.array([0.6, 0.5, 0.5, 0.4]) # Definimos los angulos theta que utilizaremos en el kernel
 
-model = svm.SVC(kernel=quantum_linear_kernel)
+q_sigmoidal_kernel = QuantumSigmoidalKernel(theta)
+
+model = svm.SVC(kernel=q_sigmoidal_kernel)
 
 model.fit(X_train, y_train)
 

@@ -8,34 +8,39 @@ from sklearn.model_selection import train_test_split
 dev = qml.device("default.qubit", wires=4)
 
 @qml.qnode(dev)
-def quantum_circuit(x):
-    # Primero haremos el caso en el que no incluiremos una variable theta personalizada para las rotaciones. Más adelante lo probaremos.
+def quantum_fisher_kernel(x, theta):
+    # Aqui meteremos la variable extra theta para ver si mejora el accuracy del modelo.
+    
+    # Encode the input vectors x1 and x2
+    qml.templates.AngleEmbedding(x, wires=range(len(x)))
     
     for i in range(len(x)):
-        qml.Hadamard(wires=i)
-        qml.RY(x[i], wires=i)
-    qml.CNOT(wires=[0, 1])
-    qml.CNOT(wires=[1, 2])
-    qml.CNOT(wires=[2, 3])
-    return [qml.expval(qml.PauliZ(i)) for i in range(len(x))]
+        qml.RY(theta[i], wires=i)
 
-def linear_kernel(x1, x2):
-    return np.dot(x1, x2)
+    return qml.state()
 
-class QuantumLinearKernel:
-    def __init__(self):
-        self.dev = qml.device("default.qubit", wires=4)
+def fisher_kernel(x1, x2, theta):
+    # Rescale the angles
+    scaled_theta = np.pi * theta
     
-    def quantum_circuit(self, x):
-        return quantum_circuit(x)
+    state_x1 =  quantum_fisher_kernel(x1, scaled_theta)
+    state_x2 = quantum_fisher_kernel(x2, scaled_theta)
+    
+    return np.abs(np.vdot(state_x1, state_x2)) ** 2
+
+class QuantumFisherKernel:
+    def __init__(self, theta):
+        self.dev = qml.device("default.qubit", wires=4)
+        self.theta = theta
+        
+    def quantum_fisher_kernel(self, x, y):
+        return quantum_fisher_kernel(x, y)
 
     def __call__(self, X, Y):
         kernel_matrix = np.zeros((len(X), len(Y)))
         for i, x in enumerate(X):
             for j, y in enumerate(Y):
-                feature_map_x = self.quantum_circuit(x)
-                feature_map_y = self.quantum_circuit(y)
-                kernel_matrix[i, j] = linear_kernel(feature_map_x, feature_map_y)
+                kernel_matrix[i, j] = fisher_kernel(x, y, self.theta)
         return kernel_matrix
 
 
@@ -56,9 +61,11 @@ y_scaled = 2 * (y - 0.5)
 
 X_train, X_test, y_train, y_test = train_test_split(X_scaled, y_scaled)
 
-quantum_linear_kernel = QuantumLinearKernel()
+theta = np.array([0.6, 0.5, 0.5, 0.4]) # Definimos los angulos theta que utilizaremos en el kernel
 
-model = svm.SVC(kernel=quantum_linear_kernel)
+q_fisher_kernel = QuantumFisherKernel(theta)
+
+model = svm.SVC(kernel=q_fisher_kernel)
 
 model.fit(X_train, y_train)
 

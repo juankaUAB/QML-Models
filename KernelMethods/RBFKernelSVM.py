@@ -9,6 +9,7 @@ dev = qml.device("default.qubit", wires=4)
 
 @qml.qnode(dev)
 def quantum_circuit(x):
+    # Primero haremos el caso en el que no incluiremos una variable theta personalizada para las rotaciones. Más adelante lo probaremos.
     for i in range(len(x)):
         qml.Hadamard(wires=i)
         qml.RY(x[i], wires=i)
