@@ -17,8 +17,6 @@ X, y = load_iris(return_X_y=True)
 X = X[:100]
 y = y[:100]
 
-# scaling the inputs is important since the embedding we use is periodic
-
 X_train, X_test, y_train, y_test = train_test_split(X, y)
 
 dim = len(X_train[0])
