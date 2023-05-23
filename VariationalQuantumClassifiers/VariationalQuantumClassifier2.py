@@ -5,8 +5,9 @@ from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
 
-# VQE 2, with Adam Optimizer (we can change it), more complex cost function, more complex data embedding, and PCA reduction to try to use less qubits.
+# VQE 2, with Adam Optimizer (we can change it), more complex cost function, more complex ansatz (bad results... 🥲)
 
 NUM_WIRES = 3 # number of data features
 NUM_LAYERS = 2 # number of repeated layers over quantum circuit
@@ -47,7 +48,7 @@ def circuit(params,x):
 def prediction(weigths,x_train):
         predictions = [circuit(weigths, f) for f in x_train]
         for i,p in enumerate(predictions):
-            predictions[i]=np.argmax(p)
+            predictions[i] = np.argmax(p) - 1
         
         return predictions
     
@@ -73,6 +74,18 @@ def accuracy(weights,x_train,labels):
                 loss+=1
         loss=loss/len(predictions)
         return loss
+
+def plot_data(Diag_Cost, Diag_Acc, EPOCHS):
+    loss_train = Diag_Cost
+    acc_train = Diag_Acc
+    epochs = range(1,EPOCHS+1)
+    plt.plot(epochs, loss_train, 'g', label='Training loss')
+    plt.plot(epochs, acc_train, 'r', label='Training Accuracy')
+    plt.title('Training metrics')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss and Accuracy')
+    plt.legend()
+    plt.show()
     
 params = (0.01 * np.random.randn(2, NUM_WIRES, 3))
 bestparams=(0.01 * np.random.randn(2, NUM_WIRES, 3))
@@ -111,3 +124,4 @@ predictions = prediction(bestparams,X_test)
 accResult = accuracy(bestparams,X_test,y_test)
 print()
 print("FINAL ACCURACY: {:0.2f}%".format(accResult*100))
+plot_data(Diag_Cost, Diag_Acc, 30)

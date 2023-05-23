@@ -3,8 +3,9 @@ from pennylane import numpy as np
 from pennylane.optimize import NesterovMomentumOptimizer
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
 
-# Simple VQC, using Nesterov Momentum Optimizer (we can test it with others), with simple data embedding (angle embedding) and with simple cost function (square loss).
+# Simple VQC, using Nesterov Momentum Optimizer (we can test it with others), with simple data embedding (angle embedding), simple cost function (square loss), and simple ansatz. (very good results! 😛)
 
 np.random.seed(0)
 
@@ -79,12 +80,14 @@ weights_init = 0.01 * np.random.randn(num_layers, num_qubits, 3, requires_grad=T
 bias_init = np.array(0.0, requires_grad=True)
 
 opt = NesterovMomentumOptimizer(0.01)
-batch_size = 5
+batch_size = 10
 
 # train the variational classifier
 weights = weights_init
 bias = bias_init
-for it in range(60):
+epoch_cost = []
+epoch_accuracy = []
+for it in range(30):
 
     # Update the weights by one optimizer step
     batch_index = np.random.randint(0, len(X_train), (batch_size,))
@@ -99,8 +102,26 @@ for it in range(60):
     # Compute accuracy on train and validation set
     acc_train = accuracy(y_train, predictions_train)
     acc_val = accuracy(y_test, predictions_test)
+    
+    cost_value = cost(weights, bias, X, y)
+    epoch_cost.append(cost_value)
+    epoch_accuracy.append(acc_train)
 
     print(
-        "Iter: {:5d} | Cost: {:0.7f} | Acc train: {:0.7f} | Acc validation: {:0.7f} "
-        "".format(it + 1, cost(weights, bias, X, y), acc_train, acc_val)
+        "Iter: {:5d} | Cost: {:0.7f} | Acc train: {:0.7f} | Acc test: {:0.7f} "
+        "".format(it + 1, cost_value, acc_train, acc_val)
     )
+
+def plot_data(Diag_Cost, Diag_Acc, EPOCHS):
+    loss_train = Diag_Cost
+    acc_train = Diag_Acc
+    epochs = range(1,EPOCHS+1)
+    plt.plot(epochs, loss_train, 'g', label='Training loss')
+    plt.plot(epochs, acc_train, 'r', label='Training Accuracy')
+    plt.title('Training metrics')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss and Accuracy')
+    plt.legend()
+    plt.show()
+    
+plot_data(epoch_cost, epoch_accuracy, 30)
