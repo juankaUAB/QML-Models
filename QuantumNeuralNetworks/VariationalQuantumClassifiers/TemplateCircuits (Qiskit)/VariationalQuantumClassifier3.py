@@ -1,19 +1,19 @@
 import numpy as np
-
 from qiskit import BasicAer
 from qiskit.circuit.library import TwoLocal, ZZFeatureMap
 from qiskit_machine_learning.algorithms import VQC
 from qiskit.algorithms.optimizers import COBYLA
 from qiskit_machine_learning.utils.loss_functions import CrossEntropyLoss
-from qiskit_machine_learning.datasets import ad_hoc_data
+from sklearn.datasets import make_classification
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
-from IPython.display import clear_output
+from qiskit.utils import algorithm_globals
 
-# Using difficult dataset (the two classes are not easily differentiated) but easy for a quantum feature map
+algorithm_globals.random_seed = 42
+
+# Using difficult dataset (multi class, instead of binary) to take advantage of VQC algorithm
 
 # callback function that draws a live plot when the .fit() method is called
 def callback_graph(weights, obj_func_eval):
@@ -21,15 +21,25 @@ def callback_graph(weights, obj_func_eval):
 
 NUM_WIRES = 2
 
-X, y, _, _ = ad_hoc_data(100, 50, NUM_WIRES, 0.3)
-y = np.array([np.argwhere(i)[0,0] for i in y])
+X, y = make_classification(
+    n_samples=200,
+    n_features=NUM_WIRES,
+    n_classes=3,
+    n_redundant=0,
+    n_clusters_per_class=1,
+    class_sep=2.0,
+    random_state=algorithm_globals.random_seed,
+)
+X = MinMaxScaler().fit_transform(X)
 
 # plot dataset
 for x, y_target in zip(X, y):
-    if y_target == 1:
+    if y_target == 0:
         plt.plot(x[0], x[1], "bo")
-    else:
+    elif y_target == 1:
         plt.plot(x[0], x[1], "go")
+    else:
+        plt.plot(x[0], x[1], "ro")
 plt.plot()
 plt.show()
 
@@ -51,7 +61,7 @@ feature_map = ZZFeatureMap(feature_dimension=NUM_WIRES, reps=3)
 optimizer = COBYLA(maxiter=30)
 
 objective_func_vals = []
-vqc = VQC(NUM_WIRES, feature_map, ansatz, optimizer = optimizer, callback=callback_graph)
+vqc = VQC(NUM_WIRES, feature_map, ansatz, optimizer = optimizer, callback=callback_graph) # loss function predetermined (test with other loss functions)
 vqc.fit(X_train, y_train)
 print(vqc.fit_result)
 
